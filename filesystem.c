@@ -1,3 +1,11 @@
+/** @file filesystem.c
+ *
+ * This file implements a FUSE filesystem with added tracing features.
+ * All traces are stored /var/log/trace.log and will be further exported t
+ * o Elastic Search to perform data analysis.
+ *
+ */
+
 #define FUSE_USE_VERSION 31
 
 #ifdef HAVE_CONFIG_H
@@ -29,6 +37,7 @@
 #endif
 
 #include "filesystem_helpers.h"
+#include "trace_log.h"
 
 static void *fs_init(struct fuse_conn_info *conn,
                       struct fuse_config *cfg)
@@ -266,6 +275,8 @@ static int fs_open(const char *path, struct fuse_file_info *fi)
         return -errno;
 
     fi->fh = res;
+
+    addTrace("open parametro parametro");
     return 0;
 }
 
