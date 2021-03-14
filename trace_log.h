@@ -15,7 +15,6 @@ static void addTrace(const char *text){
     {
         printf("Error opening trace log file!\n");
     }
-
     fprintf(f, "%s\n", text);
     fclose(f);
 }
