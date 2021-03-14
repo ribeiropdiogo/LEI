@@ -26,6 +26,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include "sb.h"
 #include <errno.h>
 #ifdef __FreeBSD__
 #include <sys/socket.h>
@@ -67,11 +68,17 @@ static int fs_getattr(const char *path, struct stat *stbuf,
 static int fs_access(const char *path, int mask)
 {
     int res;
-
+    StringBuilder *sb = sb_create();
     res = access(path, mask);
     if (res == -1)
+    {
+        sb_appendf(sb,"error access %d",-errno);
+        addTrace(sb_concat(sb));
         return -errno;
-
+    }
+    sb_appendf(sb,"access %s %d",path,mask);
+    addTrace(sb_concat(sb));
+    sb_free(sb);
     return 0;
 }
 
@@ -94,11 +101,9 @@ static int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 {
     DIR *dp;
     struct dirent *de;
-
     (void) offset;
     (void) fi;
     (void) flags;
-
     dp = opendir(path);
     if (dp == NULL)
         return -errno;
@@ -111,7 +116,6 @@ static int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         if (filler(buf, de->d_name, &st, 0, FUSE_FILL_DIR_PLUS))
             break;
     }
-
     closedir(dp);
     return 0;
 }
@@ -119,18 +123,23 @@ static int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 static int fs_mknod(const char *path, mode_t mode, dev_t rdev)
 {
     int res;
-
-    res = mknod_wrapper(AT_FDCWD, path, NULL, mode, rdev);
+    StringBuilder *sb = sb_create();
+    res = mknod(path,mode,rdev);
     if (res == -1)
+    {
+        sb_appendf(sb,"error mknod %d",-errno);
+        addTrace(sb_concat(sb));
         return -errno;
-
+    }
+    sb_appendf(sb,"mknod %s %d",strdup(path),mode);
+    addTrace(sb_concat(sb));
+    sb_free(sb);
     return 0;
 }
 
 static int fs_mkdir(const char *path, mode_t mode)
 {
     int res;
-
     res = mkdir(path, mode);
     if (res == -1)
         return -errno;
@@ -269,14 +278,19 @@ static int fs_create(const char *path, mode_t mode,
 static int fs_open(const char *path, struct fuse_file_info *fi)
 {
     int res;
+    StringBuilder *sb = sb_create();
 
     res = open(path, fi->flags);
     if (res == -1)
+    {
+        sb_appendf(sb,"error open %d",-errno);
+        addTrace(sb_concat(sb));
         return -errno;
-
+    }
     fi->fh = res;
-
-    addTrace("open parametro parametro");
+    sb_appendf(sb,"open %s %d",strdup(path),fi->flags);
+    addTrace(sb_concat(sb));
+    sb_free(sb);
     return 0;
 }
 

@@ -8,7 +8,7 @@ all: compile run
 end: umount clean
 
 compile:
-	gcc filesystem.c `pkg-config fuse3 --cflags --libs` -D_FILE_OFFSET_BITS=64 -o filesystem
+	gcc filesystem.c sb.c `pkg-config fuse3 --cflags --libs` -D_FILE_OFFSET_BITS=64 -o filesystem
 
 run:
 	mkdir -p $(FS)
