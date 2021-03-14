@@ -39,6 +39,7 @@
 
 #include "filesystem_helpers.h"
 #include "trace_log.h"
+#include <time.h>
 
 static void *fs_init(struct fuse_conn_info *conn,
                       struct fuse_config *cfg)
@@ -299,6 +300,9 @@ static int fs_read(const char *path, char *buf, size_t size, off_t offset,
 {
     int fd;
     int res;
+    StringBuilder *sb = sb_create();
+    int pid = fuse_get_context()->pid;
+    int begin = (int)time(NULL);
 
     if(fi == NULL)
         fd = open(path, O_RDONLY);
@@ -309,11 +313,23 @@ static int fs_read(const char *path, char *buf, size_t size, off_t offset,
         return -errno;
 
     res = pread(fd, buf, size, offset);
-    if (res == -1)
+
+    if (res == -1){
+        sb_appendf(sb,"error pread %d %d",pid,-errno);
+        addTrace(sb_concat(sb));
         res = -errno;
+    }
 
     if(fi == NULL)
         close(fd);
+
+    int end = (int)time(NULL);
+
+    if (res != -1){
+        sb_appendf(sb,"pread %d %d %d %d %s %d",pid,begin,end,res,path,offset);
+        addTrace(sb_concat(sb));
+    }
+
     return res;
 }
 
@@ -322,6 +338,9 @@ static int fs_write(const char *path, const char *buf, size_t size,
 {
     int fd;
     int res;
+    StringBuilder *sb = sb_create();
+    int pid = fuse_get_context()->pid;
+    int begin = (int)time(NULL);
 
     (void) fi;
     if(fi == NULL)
@@ -329,8 +348,11 @@ static int fs_write(const char *path, const char *buf, size_t size,
     else
         fd = fi->fh;
 
-    if (fd == -1)
+    if (fd == -1){
+        sb_appendf(sb,"error pwrite %d %d",pid,-errno);
+        addTrace(sb_concat(sb));
         return -errno;
+    }
 
     res = pwrite(fd, buf, size, offset);
     if (res == -1)
@@ -338,6 +360,14 @@ static int fs_write(const char *path, const char *buf, size_t size,
 
     if(fi == NULL)
         close(fd);
+
+    int end = (int)time(NULL);
+
+    if (res != -1){
+        sb_appendf(sb,"pwrite %d %d %d %d %s %d",pid,begin,end,res,path,offset);
+        addTrace(sb_concat(sb));
+    }
+    
     return res;
 }
 
