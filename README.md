@@ -15,7 +15,9 @@ This project is **only compatible with Ubuntu** and probably won't work on MacOS
 
 ## 📦 Running
 
-The project contains a `Makefile` wich can be used the following way:
+### Fuse Filesystem
+
+The `fuse`folder contains a `Makefile` wich can be used the following way:
 
 If you want to compile and mount(run) the flesystem:
 
