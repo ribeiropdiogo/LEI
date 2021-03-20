@@ -24,9 +24,12 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <dirent.h>
 #include "sb.h"
+#include <sys/socket.h> 
+#include <arpa/inet.h>
 #include <errno.h>
 #ifdef __FreeBSD__
 #include <sys/socket.h>
@@ -36,11 +39,11 @@
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
 #endif
-
+#define PORT 12355
 #include "filesystem_helpers.h"
 #include "trace_log.h"
 #include <time.h>
-
+int sock;
 static void *fs_init(struct fuse_conn_info *conn,
                       struct fuse_config *cfg)
 {
@@ -50,7 +53,7 @@ static void *fs_init(struct fuse_conn_info *conn,
     cfg->attr_timeout = 0;
     cfg->negative_timeout = 0;
 
-    return NULL;
+    return (int *) fuse_get_context()->private_data;
 }
 
 static int fs_getattr(const char *path, struct stat *stbuf,
@@ -68,19 +71,21 @@ static int fs_getattr(const char *path, struct stat *stbuf,
 
 static int fs_access(const char *path, int mask)
 {
+    struct timespec tstart={0,0}, tend={0,0};
     int res;
     StringBuilder *sb = sb_create();
+    int maybeError=0;
+    clock_gettime(CLOCK_MONOTONIC,&tstart);
     res = access(path, mask);
     if (res == -1)
-    {
-        sb_appendf(sb,"error access %d",-errno);
-        addTrace(sb_concat(sb));
-        return -errno;
-    }
-    sb_appendf(sb,"access %s %d",path,mask);
-    addTrace(sb_concat(sb));
+        maybeError=-errno;
+    clock_gettime(CLOCK_MONOTONIC, &tend);
+    sb_appendf(sb,"access %d %.5f %.5f %d %s %d",fuse_get_context()->pid,(double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec,(double)tend.tv_sec + 1.0e-9*tend.tv_nsec,maybeError,strdup(path),mask);
+    char * toSend=sb_concat(sb);
+    int * c = (int *) fuse_get_context()->private_data;
+    send(*c,toSend,strlen(toSend),0);
     sb_free(sb);
-    return 0;
+    return maybeError;
 }
 
 static int fs_readlink(const char *path, char *buf, size_t size)
@@ -123,19 +128,21 @@ static int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 static int fs_mknod(const char *path, mode_t mode, dev_t rdev)
 {
+    struct timespec tstart={0,0}, tend={0,0};
     int res;
     StringBuilder *sb = sb_create();
+    int maybeError=0;
+    clock_gettime(CLOCK_MONOTONIC,&tstart);
     res = mknod(path,mode,rdev);
     if (res == -1)
-    {
-        sb_appendf(sb,"error mknod %d",-errno);
-        addTrace(sb_concat(sb));
-        return -errno;
-    }
-    sb_appendf(sb,"mknod %s %d",strdup(path),mode);
-    addTrace(sb_concat(sb));
+        maybeError=-errno;
+    clock_gettime(CLOCK_MONOTONIC, &tend);
+    sb_appendf(sb,"mknod %d %.5f %.5f %d %s %d",fuse_get_context()->pid,(double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec,(double)tend.tv_sec + 1.0e-9*tend.tv_nsec,maybeError,strdup(path),mode);
+    char * toSend=sb_concat(sb);
+    int * c = (int *) fuse_get_context()->private_data;
+    send(*c,toSend,strlen(toSend),0);
     sb_free(sb);
-    return 0;
+    return maybeError;
 }
 
 static int fs_mkdir(const char *path, mode_t mode)
@@ -278,97 +285,78 @@ static int fs_create(const char *path, mode_t mode,
 
 static int fs_open(const char *path, struct fuse_file_info *fi)
 {
+    struct timespec tstart={0,0}, tend={0,0};
     int res;
     StringBuilder *sb = sb_create();
-
+    int maybeError=0;
+    clock_gettime(CLOCK_MONOTONIC,&tstart);
     res = open(path, fi->flags);
     if (res == -1)
-    {
-        sb_appendf(sb,"error open %d",-errno);
-        addTrace(sb_concat(sb));
-        return -errno;
-    }
+        maybeError=-errno;
     fi->fh = res;
-    sb_appendf(sb,"open %s %d",strdup(path),fi->flags);
-    addTrace(sb_concat(sb));
+    clock_gettime(CLOCK_MONOTONIC, &tend);
+    sb_appendf(sb,"open %d %.5f %.5f %d %s %d",fuse_get_context()->pid,(double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec,(double)tend.tv_sec + 1.0e-9*tend.tv_nsec,maybeError,strdup(path),fi->flags);
+    char * toSend=sb_concat(sb);
+    int * c = (int *) fuse_get_context()->private_data;
+    send(*c,toSend,strlen(toSend),0);
     sb_free(sb);
-    return 0;
+    return maybeError;
 }
 
 static int fs_read(const char *path, char *buf, size_t size, off_t offset,
                     struct fuse_file_info *fi)
 {
     int fd;
+    struct timespec tstart={0,0}, tend={0,0};
     int res;
     StringBuilder *sb = sb_create();
-    int pid = fuse_get_context()->pid;
-    int begin = (int)time(NULL);
-
+    int maybeError=0;
+    clock_gettime(CLOCK_MONOTONIC,&tstart);
     if(fi == NULL)
         fd = open(path, O_RDONLY);
     else
         fd = fi->fh;
-
     if (fd == -1)
-        return -errno;
-
-    res = pread(fd, buf, size, offset);
-
-    if (res == -1){
-        sb_appendf(sb,"error pread %d %d",pid,-errno);
-        addTrace(sb_concat(sb));
-        res = -errno;
-    }
-
-    if(fi == NULL)
+        maybeError=-errno;
+    else if (fi==NULL)
         close(fd);
-
-    int end = (int)time(NULL);
-
-    if (res != -1){
-        sb_appendf(sb,"pread %d %d %d %d %s %d",pid,begin,end,res,path,offset);
-        addTrace(sb_concat(sb));
-    }
-
-    return res;
+        else
+            res = pread(fd, buf, size, offset);
+    clock_gettime(CLOCK_MONOTONIC, &tend);
+    sb_appendf(sb,"pread %d %.5f %.5f %d %s %d %d",fuse_get_context()->pid,(double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec,(double)tend.tv_sec + 1.0e-9*tend.tv_nsec,maybeError,strdup(path),size,offset);
+    char * toSend=sb_concat(sb);
+    int * c = (int *) fuse_get_context()->private_data;
+    send(*c,toSend,strlen(toSend),0);
+    sb_free(sb);
+    return maybeError;
 }
 
 static int fs_write(const char *path, const char *buf, size_t size,
                      off_t offset, struct fuse_file_info *fi)
 {
     int fd;
+    struct timespec tstart={0,0}, tend={0,0};
     int res;
     StringBuilder *sb = sb_create();
-    int pid = fuse_get_context()->pid;
-    int begin = (int)time(NULL);
-
-    (void) fi;
+    int maybeError=0;
+    clock_gettime(CLOCK_MONOTONIC,&tstart);
     if(fi == NULL)
-        fd = open(path, O_WRONLY);
+        fd = open(path, O_RDONLY);
     else
         fd = fi->fh;
-
-    if (fd == -1){
-        sb_appendf(sb,"error pwrite %d %d",pid,-errno);
-        addTrace(sb_concat(sb));
-        return -errno;
-    }
-
-    res = pwrite(fd, buf, size, offset);
-    if (res == -1)
-        res = -errno;
-
-    if(fi == NULL)
+    if (fd == -1)
+        maybeError=-errno;
+    else if (fi==NULL)
         close(fd);
-
-    int end = (int)time(NULL);
-
-    if (res != -1){
-        sb_appendf(sb,"pwrite %d %d %d %d %s %d",pid,begin,end,res,path,offset);
-        addTrace(sb_concat(sb));
-    }
-    
-    return res;
+        else
+            res = pwrite(fd, buf, size, offset);
+    clock_gettime(CLOCK_MONOTONIC, &tend);
+    sb_appendf(sb,"pwrite %d %.5f %.5f %d %s %d %d",fuse_get_context()->pid,(double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec,(double)tend.tv_sec + 1.0e-9*tend.tv_nsec,maybeError,strdup(path),size,offset);
+    char * toSend=sb_concat(sb);
+    int * c = (int *) fuse_get_context()->private_data;
+    send(*c,toSend,strlen(toSend),0);
+    sb_free(sb);
+    return maybeError;
 }
 
 static int fs_statfs(const char *path, struct statvfs *stbuf)
@@ -573,6 +561,32 @@ static const struct fuse_operations fs_oper = {
 
 int main(int argc, char *argv[])
 {
+    int sock = 0, valread; 
+    struct sockaddr_in serv_addr; 
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) 
+    { 
+        printf("\n Socket creation error \n"); 
+        return -1; 
+    } 
+    serv_addr.sin_family = AF_INET; 
+    serv_addr.sin_port = htons(PORT); 
+    // Convert IPv4 and IPv6 addresses from text to binary form 
+    if(inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)<=0)  
+    { 
+        printf("\nInvalid address/ Address not supported \n"); 
+        return -1; 
+    } 
+   
+    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) 
+    { 
+        printf("\nConnection Failed \n"); 
+        return -1; 
+    } 
     umask(0);
-    return fuse_main(argc, argv, &fs_oper, NULL);
+    int * socket_info = malloc(sizeof(int));
+    *socket_info=sock;
+    StringBuilder *sb = sb_create();
+    sb_appendf(sb,"--%p--",socket_info);
+    addTrace(sb_concat(sb));
+    return fuse_main(argc, argv, &fs_oper,socket_info);
 }
