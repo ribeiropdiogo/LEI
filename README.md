@@ -6,18 +6,11 @@ This project consists in a FUSE filesystem complemented with tracing functionali
 
 ## 🔧 Prerequisites
 
-In order to run the project you need to install the following:
-
-* fuse
-* libfuse-dev
-
-This project is **only compatible with Ubuntu** and probably won't work on MacOS.
-
 ## 📦 Running
 
 ### Fuse Filesystem
 
-The `fuse`folder contains a `Makefile` wich can be used the following way:
+The `fuse` folder contains a `Makefile` wich can be used the following way:
 
 If you want to compile and mount(run) the flesystem:
 
@@ -38,19 +31,20 @@ If you want to unmount the filesystem you just need to run:
 make end
 ```
 
-### Python Server
+### Test Program
+
+In the `test`folder there is a small sequential test program. In order to compile and run you just need to have the library files in the `/usr/lib` folder and run the following commands:
+
+```bash
+g++ -std=c++17 test.cpp -o test -lfsrouter
+./test
+```
 
 ## :nerd_face: How it Works
 
-When running `make run` (which is included in `make all`), you are mounting the folder `fs_data` which in the mountpoint `fs`. The result is a filesystem located at the mountpoint which supports our tracing fuctionality.
-
-The system call used in this filesystem are captured and sent via sockets to the `server` we built in python. This server processes this data by inserting it in Elastic Search.
+When running `make run` (which is included in `make all`), you are mounting the folder `fs_data` which in the mountpoint `fs`. The result is a filesystem located at the mountpoint which supports our library. The system call used in this filesystem are the ones defined in the library. The same logic is applied to the teste program.
 
 
 # :muscle: Developed by:
 
-This project was built as part of **Software Engineering Laboratories @ University of Minho** by:
-
 * A84442 - [Diogo Ribeiro](https://github.com/ribeiropdiogo)
-* A83712 - [Rui Mendes](https://github.com/ruimendes29)
-* A84930 - [Rui Reis](https://github.com/Syrayse)
