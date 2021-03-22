@@ -41,4 +41,5 @@ def start(host, port):
                 data = conn.recv(1024)
                 if not data:
                     break
-                parse(tracer, data.decode('utf-8'))
+                print(data)    
+                #parse(tracer, data.decode('utf-8'))

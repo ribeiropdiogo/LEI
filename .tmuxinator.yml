@@ -1,0 +1,14 @@
+# ~/.tmuxinator/Launcher.yml
+
+name: Launcher
+root: .
+
+windows:
+  - server:
+      - cd server
+      - python3 server.py
+  - filesystem:
+      - sleep 3
+      - cd fuse
+      - make all
+      - cd fs

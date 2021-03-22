@@ -13,7 +13,7 @@ compile:
 run:
 	mkdir -p $(FS)
 	[ -d $(DATA) ] || mkdir -p $(DATA)
-	sudo ./filesystem -o allow_other,default_permissions,modules=subdir,subdir=$(DATA) $(FS)
+	./filesystem -o allow_other,default_permissions,modules=subdir,subdir=$(DATA) $(FS)
 
 umount:
 	sudo umount -l $(FS)
