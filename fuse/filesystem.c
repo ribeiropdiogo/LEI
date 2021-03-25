@@ -39,7 +39,7 @@
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
 #endif
-int port = 12355;
+int port = 155;
 #include "filesystem_helpers.h"
 #include "trace_log.h"
 #include <time.h>
@@ -578,7 +578,6 @@ int main(int argc, char *argv[])
             break;
           }
     }
-    // Returns first token
     
    fclose(fp);
     int sock = 0, valread; 
