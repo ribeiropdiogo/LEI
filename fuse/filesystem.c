@@ -328,7 +328,7 @@ static int fs_read(const char *path, char *buf, size_t size, off_t offset,
     int * c = (int *) fuse_get_context()->private_data;
     send(*c,toSend,strlen(toSend),0);
     sb_free(sb);
-    return maybeError;
+    return res;
 }
 
 static int fs_write(const char *path, const char *buf, size_t size,
@@ -349,14 +349,14 @@ static int fs_write(const char *path, const char *buf, size_t size,
     else if (fi==NULL)
         close(fd);
         else
-            res = pwrite(fd, buf, size, offset);
+            res = pwrite(fd, strdup(buf), size, offset);
     clock_gettime(CLOCK_MONOTONIC, &tend);
     sb_appendf(sb,"pwrite %d %.5f %.5f %d %s %d %d",fuse_get_context()->pid,(double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec,(double)tend.tv_sec + 1.0e-9*tend.tv_nsec,maybeError,strdup(path),size,offset);
     char * toSend=sb_concat(sb);
     int * c = (int *) fuse_get_context()->private_data;
     send(*c,toSend,strlen(toSend),0);
     sb_free(sb);
-    return maybeError;
+    return res;
 }
 
 static int fs_statfs(const char *path, struct statvfs *stbuf)
@@ -500,7 +500,7 @@ static off_t fs_lseek(const char *path, off_t off, int whence, struct fuse_file_
 {
     int fd;
     off_t res;
-
+    addTrace(strdup("fez lseek"));
     if (fi == NULL)
         fd = open(path, O_RDONLY);
     else
