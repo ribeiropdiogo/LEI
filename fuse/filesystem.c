@@ -39,7 +39,7 @@
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
 #endif
-#define PORT 12355
+int port = 12355;
 #include "filesystem_helpers.h"
 #include "trace_log.h"
 #include <time.h>
@@ -561,6 +561,26 @@ static const struct fuse_operations fs_oper = {
 
 int main(int argc, char *argv[])
 {
+    FILE *fp;
+   char * line = NULL;
+   ssize_t read;
+   size_t len = 0;
+   char * str1 = "port";
+   fp = fopen("../server/config.yml", "r");
+   while((read = getline(&line, &len, fp)) != -1)
+    {
+        char *token = strtok(line, ":");
+        port = atoi(token);
+       if(strcmp(token,strdup("    port"))==0)
+          {
+              token = strtok(NULL,":");
+              port=atoi(token);
+            break;
+          }
+    }
+    // Returns first token
+    
+   fclose(fp);
     int sock = 0, valread; 
     struct sockaddr_in serv_addr; 
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) 
@@ -569,7 +589,7 @@ int main(int argc, char *argv[])
         return -1; 
     } 
     serv_addr.sin_family = AF_INET; 
-    serv_addr.sin_port = htons(PORT); 
+    serv_addr.sin_port = htons(port); 
     // Convert IPv4 and IPv6 addresses from text to binary form 
     if(inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)<=0)  
     { 
