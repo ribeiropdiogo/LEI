@@ -60,3 +60,4 @@ dkms.conf
 # Python
 server/.idea/
 server/venv/
+server/__pycache__/
