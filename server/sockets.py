@@ -5,7 +5,7 @@ from tracerapi import ESTracerAPI
 
 def parse(tracer,line):
     params = line.split(" ")
-    esIdx = 'calls-' + params[0]
+    esIdx = 'calls_' + params[0]
 
     if params[0] == "mknod":
         tracer.add_doc(esIdx,    {"pid": params[1], "timestamp_inicial": params[2], "timestamp_final": params[3], "error": params[4], "path": params[5], "creation_mode": params[6]})
