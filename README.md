@@ -10,10 +10,23 @@ In order to run the project you need to install the following:
 
 * fuse
 * libfuse-dev
+* python
+* elasticsearch
+* kibana
+* gcc
 
 This project is **only compatible with Ubuntu** and probably won't work on MacOS.
 
 ## 📦 Running
+
+
+### Python Server
+
+In order to run the python server which connects the filesystem to our elastic search storage, you just need to run the following:
+
+```bash
+python3 server.py
+```
 
 ### Fuse Filesystem
 
@@ -38,7 +51,14 @@ If you want to unmount the filesystem you just need to run:
 make end
 ```
 
-### Python Server
+In order to run one of the three test programs, you can use the following commands:
+
+```bash
+make compile
+make rocks (or) make psql (or) make tensor
+```
+
+### Elastic Search & Kibana
 
 ## :nerd_face: How it Works
 
