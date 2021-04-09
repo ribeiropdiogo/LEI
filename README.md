@@ -28,6 +28,8 @@ In order to run the python server which connects the filesystem to our elastic s
 python3 server.py
 ```
 
+The `server`folder also contains a `confif.yml`file with the server's configuration parameters.
+
 ### Fuse Filesystem
 
 The `fuse`folder contains a `Makefile` wich can be used the following way:
@@ -59,6 +61,20 @@ make rocks (or) make psql (or) make tensor
 ```
 
 ### Elastic Search & Kibana
+
+To start elastic search and kibana, you need the following commands:
+
+```bash
+sudo systemctl start elasticsearch.service
+sudo systemctl start kibana.service
+```
+
+To stop them, just repeat the commands with `stop`instead os `start`:
+
+```bash
+sudo systemctl stop elasticsearch.service
+sudo systemctl stop kibana.service
+```
 
 ## :nerd_face: How it Works
 
