@@ -44,6 +44,23 @@ int port = 155;
 #include "trace_log.h"
 #include <time.h>
 int sock;
+
+static uint64_t gettimestamp()
+{
+    long int ns;
+  uint64_t all;
+  time_t sec;
+  struct timespec spec;
+    char acTimestamp [256];
+    char * sTimestamp;
+  clock_gettime(CLOCK_REALTIME, &spec);
+  sec = spec.tv_sec;
+  ns = spec.tv_nsec;
+
+  all = (uint64_t) sec * 1000000000 + (uint64_t) ns;
+    return all;
+}
+
 static void *fs_init(struct fuse_conn_info *conn,
                       struct fuse_config *cfg)
 {
@@ -71,16 +88,15 @@ static int fs_getattr(const char *path, struct stat *stbuf,
 
 static int fs_access(const char *path, int mask)
 {
-    struct timespec tstart={0,0}, tend={0,0};
     int res;
     StringBuilder *sb = sb_create();
     int maybeError=0;
-    clock_gettime(CLOCK_MONOTONIC,&tstart);
+    uint64_t startnsec = gettimestamp();
     res = access(path, mask);
     if (res == -1)
         maybeError=-errno;
-    clock_gettime(CLOCK_MONOTONIC, &tend);
-    sb_appendf(sb,"access %d %.5f %.5f %d %s %d",fuse_get_context()->pid,(double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec,(double)tend.tv_sec + 1.0e-9*tend.tv_nsec,maybeError,strdup(path),mask);
+    uint64_t endnsec = gettimestamp();
+    sb_appendf(sb,"access %d %lu %lu %d %s %d\n",fuse_get_context()->pid,startnsec,endnsec-startnsec,maybeError,path,mask);
     char * toSend=sb_concat(sb);
     int * c = (int *) fuse_get_context()->private_data;
     send(*c,toSend,strlen(toSend),0);
@@ -128,16 +144,15 @@ static int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 static int fs_mknod(const char *path, mode_t mode, dev_t rdev)
 {
-    struct timespec tstart={0,0}, tend={0,0};
     int res;
     StringBuilder *sb = sb_create();
     int maybeError=0;
-    clock_gettime(CLOCK_MONOTONIC,&tstart);
+    uint64_t startnsec = gettimestamp();
     res = mknod(path,mode,rdev);
     if (res == -1)
         maybeError=-errno;
-    clock_gettime(CLOCK_MONOTONIC, &tend);
-    sb_appendf(sb,"mknod %d %.5f %.5f %d %s %d",fuse_get_context()->pid,(double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec,(double)tend.tv_sec + 1.0e-9*tend.tv_nsec,maybeError,strdup(path),mode);
+    uint64_t endnsec = gettimestamp();
+    sb_appendf(sb,"mknod %d %lu %lu %d %s %d\n",fuse_get_context()->pid,startnsec,endnsec-startnsec,maybeError,path,mode);
     char * toSend=sb_concat(sb);
     int * c = (int *) fuse_get_context()->private_data;
     send(*c,toSend,strlen(toSend),0);
@@ -242,16 +257,23 @@ static int fs_chown(const char *path, uid_t uid, gid_t gid,
 static int fs_truncate(const char *path, off_t size,
                         struct fuse_file_info *fi)
 {
-    int res;
-
-    if (fi != NULL)
-        res = ftruncate(fi->fh, size);
-    else
+    int res=0;
+    StringBuilder *sb = sb_create();
+    int maybeError=0;
+    uint64_t startnsec = gettimestamp();
+    if(fi == NULL)
         res = truncate(path, size);
+    else
+        res = truncate(fi->fh, size);
     if (res == -1)
-        return -errno;
-
-    return 0;
+        maybeError=-errno;
+    uint64_t endnsec = gettimestamp();
+    sb_appendf(sb,"truncate %d %lu %lu %d %s %d\n",fuse_get_context()->pid,startnsec,endnsec-startnsec,maybeError,path,size);
+    char * toSend=sb_concat(sb);
+    int * c = (int *) fuse_get_context()->private_data;
+    send(*c,toSend,strlen(toSend),0);
+    sb_free(sb);
+    return res;
 }
 
 #ifdef HAVE_UTIMENSAT
@@ -283,23 +305,28 @@ static int fs_create(const char *path, mode_t mode,
     return 0;
 }
 
+
+
 static int fs_open(const char *path, struct fuse_file_info *fi)
 {
-    struct timespec tstart={0,0}, tend={0,0};
     int res;
     StringBuilder *sb = sb_create();
     int maybeError=0;
-    clock_gettime(CLOCK_MONOTONIC,&tstart);
+    uint64_t startnsec= gettimestamp();
     res = open(path, fi->flags);
     if (res == -1)
         maybeError=-errno;
     fi->fh = res;
-    clock_gettime(CLOCK_MONOTONIC, &tend);
-    sb_appendf(sb,"open %d %.5f %.5f %d %s %d",fuse_get_context()->pid,(double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec,(double)tend.tv_sec + 1.0e-9*tend.tv_nsec,maybeError,strdup(path),fi->flags);
+    uint64_t endnsec= gettimestamp();
+    sb_appendf(sb,"open %d %lu %lu %d %s %d\n",fuse_get_context()->pid,startnsec,endnsec-startnsec,maybeError,path,fi->flags);
     char * toSend=sb_concat(sb);
     int * c = (int *) fuse_get_context()->private_data;
     send(*c,toSend,strlen(toSend),0);
     sb_free(sb);
+    time_t t = time(NULL);
+  struct tm tm = *localtime(&t);
+  printf("now: %d-%02d-%02d %02d:%02d:%02d\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+
     return maybeError;
 }
 
@@ -307,11 +334,10 @@ static int fs_read(const char *path, char *buf, size_t size, off_t offset,
                     struct fuse_file_info *fi)
 {
     int fd;
-    struct timespec tstart={0,0}, tend={0,0};
     int res;
     StringBuilder *sb = sb_create();
     int maybeError=0;
-    clock_gettime(CLOCK_MONOTONIC,&tstart);
+    uint64_t startnsec = gettimestamp();
     if(fi == NULL)
         fd = open(path, O_RDONLY);
     else
@@ -322,8 +348,9 @@ static int fs_read(const char *path, char *buf, size_t size, off_t offset,
         close(fd);
         else
             res = pread(fd, buf, size, offset);
-    clock_gettime(CLOCK_MONOTONIC, &tend);
-    sb_appendf(sb,"pread %d %.5f %.5f %d %s %d %d",fuse_get_context()->pid,(double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec,(double)tend.tv_sec + 1.0e-9*tend.tv_nsec,maybeError,strdup(path),size,offset);
+    uint64_t endnsec = gettimestamp();
+    //sb_appendf(sb,"pread %d %lu %lu %d %s %d %d\n",fuse_get_context()->pid,(unsigned long) ((double)tstart.tv_sec*1.0e9)+tstart.tv_nsec,(unsigned long) ((double)tend.tv_sec*1.0e9)+tend.tv_nsec,maybeError,strdup(path),size,offset);
+    sb_appendf(sb,"pread %d %lu %lu %d %s %d %d\n",fuse_get_context()->pid,startnsec,endnsec-startnsec,maybeError,path,size,offset);
     char * toSend=sb_concat(sb);
     int * c = (int *) fuse_get_context()->private_data;
     send(*c,toSend,strlen(toSend),0);
@@ -335,11 +362,10 @@ static int fs_write(const char *path, const char *buf, size_t size,
                      off_t offset, struct fuse_file_info *fi)
 {
     int fd;
-    struct timespec tstart={0,0}, tend={0,0};
-    int res;
+    int res=0;
     StringBuilder *sb = sb_create();
     int maybeError=0;
-    clock_gettime(CLOCK_MONOTONIC,&tstart);
+    uint64_t startnsec = gettimestamp();
     if(fi == NULL)
         fd = open(path, O_RDONLY);
     else
@@ -349,9 +375,9 @@ static int fs_write(const char *path, const char *buf, size_t size,
     else if (fi==NULL)
         close(fd);
         else
-            res = pwrite(fd, strdup(buf), size, offset);
-    clock_gettime(CLOCK_MONOTONIC, &tend);
-    sb_appendf(sb,"pwrite %d %.5f %.5f %d %s %d %d",fuse_get_context()->pid,(double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec,(double)tend.tv_sec + 1.0e-9*tend.tv_nsec,maybeError,strdup(path),size,offset);
+            res = pwrite(fd, buf, size, offset);
+    uint64_t endnsec = gettimestamp();
+    sb_appendf(sb,"pwrite %d %lu %lu %d %s %d %d\n",fuse_get_context()->pid,startnsec,endnsec-startnsec,maybeError,path,size,offset);
     char * toSend=sb_concat(sb);
     int * c = (int *) fuse_get_context()->private_data;
     send(*c,toSend,strlen(toSend),0);
@@ -499,22 +525,26 @@ static ssize_t fs_copy_file_range(const char *path_in,
 static off_t fs_lseek(const char *path, off_t off, int whence, struct fuse_file_info *fi)
 {
     int fd;
-    off_t res;
-    addTrace(strdup("fez lseek"));
-    if (fi == NULL)
+    int res=0;
+    StringBuilder *sb = sb_create();
+    int maybeError=0;
+    uint64_t startnsec = gettimestamp();
+    if(fi == NULL)
         fd = open(path, O_RDONLY);
     else
         fd = fi->fh;
-
     if (fd == -1)
-        return -errno;
-
-    res = lseek(fd, off, whence);
-    if (res == -1)
-        res = -errno;
-
-    if (fi == NULL)
+        maybeError=-errno;
+    else if (fi==NULL)
         close(fd);
+        else
+            res = lseek(fd, off, whence);
+    uint64_t endnsec = gettimestamp();
+    sb_appendf(sb,"lseek %d %lu %lu %d %s %d\n",fuse_get_context()->pid,startnsec,endnsec-startnsec,maybeError,path,off);
+    char * toSend=sb_concat(sb);
+    int * c = (int *) fuse_get_context()->private_data;
+    send(*c,toSend,strlen(toSend),0);
+    sb_free(sb);
     return res;
 }
 

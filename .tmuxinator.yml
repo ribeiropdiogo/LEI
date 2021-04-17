@@ -1,6 +1,6 @@
 # ~/.tmuxinator/Launcher.yml
 
-name: Launcher
+name: main
 root: .
 
 windows:
@@ -10,5 +10,13 @@ windows:
   - filesystem:
       - sleep 3
       - cd fuse
-      - make all
+      - make compile
       - cd fs
+  <%- if args[0] == "psql" %>
+  - database:
+    - sleep 6
+    - cd fuse
+    - make psql
+    - /usr/lib/postgresql/12/bin/initdb -D fs
+    - /usr/lib/postgresql/12/bin/postgres -D fs -k. 
+  <%- end %>

@@ -25,20 +25,17 @@ clean:
 	rm -rf $(FS)
 	rm filesystem
 
-rocksdb:
-	gcc filesystem.c sb.c `pkg-config fuse3 --cflags --libs` -D_FILE_OFFSET_BITS=64 -o filesystem
-	mkdir -p $(ROCKS)
+rocks:
+	mkdir -p $(FS)
 	[ -d $(ROCKS) ] || mkdir -p $(ROCKS)
 	./filesystem -o allow_other,default_permissions,modules=subdir,subdir=$(ROCKS) $(FS)
 
-postgres:
-	gcc filesystem.c sb.c `pkg-config fuse3 --cflags --libs` -D_FILE_OFFSET_BITS=64 -o filesystem
-	mkdir -p $(POSTGRES)
+psql:
+	mkdir -p $(FS)
 	[ -d $(POSTGRES) ] || mkdir -p $(POSTGRES)
 	./filesystem -o allow_other,default_permissions,modules=subdir,subdir=$(POSTGRES) $(FS)
 
-tensorflow:
-	gcc filesystem.c sb.c `pkg-config fuse3 --cflags --libs` -D_FILE_OFFSET_BITS=64 -o filesystem
-	mkdir -p $(TENSOR)
+tensor:
+	mkdir -p $(FS)
 	[ -d $(TENSOR) ] || mkdir -p $(TENSOR)
 	./filesystem -o allow_other,default_permissions,modules=subdir,subdir=$(TENSOR) $(FS)
