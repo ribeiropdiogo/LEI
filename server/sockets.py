@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import asyncio
 import socket
 from tracerapi import ESTracerAPI
 from datetime import datetime
@@ -37,7 +38,7 @@ def parse(tracer,line):
         tracer.add_doc(esIdx,    {"type":"fsync","pid": params[1], "timestamp_inicial": params[2], "duration": params[3], "error": params[4], "file_descriptor": params[5]})
 
 
-def start(host, port):
+def start(host, port, bytes_read, executor):
     tracer = ESTracerAPI()
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((host, port))
@@ -48,7 +49,8 @@ def start(host, port):
         with conn:
             print('> Connected by', addr)
             while True:
-                b = conn.recv(256)
+                b = conn.recv(bytes_read)
+                
                 data += b.decode('utf-8')
 
                 if not data:
@@ -61,7 +63,7 @@ def start(host, port):
 
                 for line in lines:
                     #print(line)    
-                    parse(tracer, line)
+                    future = executor.submit(parse, tracer,line)
 
                 data = ''
 
