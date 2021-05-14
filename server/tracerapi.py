@@ -1,16 +1,12 @@
 from elasticsearch import Elasticsearch
+from elasticsearch import helpers
 
 class ESTracerAPI():
 	def __init__(self):
-		self.optimized = True
 		self.client = Elasticsearch()
 
-	def add_bulk(self, etype, info):
-		if not self.optimized:
-			for i in info:
-				self.add_doc(etype, i)
-		else:
-			print('hi')
+	def add_bulk(self, actions):
+		helpers.bulk(self.client, actions)
 
 	def add_doc(self, etype, info):
 		self.client.index(index=etype, body=info)
