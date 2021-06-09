@@ -26,9 +26,16 @@ clean:
 	rm filesystem
 
 rocks:
+	gcc filesystem.c sb.c `pkg-config fuse3 --cflags --libs` -D_FILE_OFFSET_BITS=64 -o filesystem
 	mkdir -p $(FS)
 	[ -d $(ROCKS) ] || mkdir -p $(ROCKS)
 	./filesystem -o allow_other,default_permissions,modules=subdir,subdir=$(ROCKS) $(FS)
+
+simple_rocks:
+	mkdir -p $(FS)
+	[ -d $(ROCKS) ] || mkdir -p $(ROCKS)
+	./passthrough -o allow_other,default_permissions,modules=subdir,subdir=$(ROCKS) $(FS)
+
 
 psql:
 	mkdir -p $(FS)

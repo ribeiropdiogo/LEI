@@ -264,7 +264,7 @@ static int fs_truncate(const char *path, off_t size,
     if(fi == NULL)
         res = truncate(path, size);
     else
-        res = truncate(fi->fh, size);
+        res = ftruncate(fi->fh, size);
     if (res == -1)
         maybeError=-errno;
     uint64_t endnsec = gettimestamp();

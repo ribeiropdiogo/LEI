@@ -1,4 +1,4 @@
 server:
     host: 127.0.0.1
-    port: 12352
+    port: 12351
     socket_bytes: 131072
